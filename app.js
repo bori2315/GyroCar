@@ -28,7 +28,7 @@ socket.on("gameOver",data=>{gameFinished=true;const board=(data.ranking||[]).map
 socket.on("hit",data=>{if(mode==="desktop")$("gameInfo").textContent=data.scorer+" 충돌 성공! +1점";});
 function renderPlayers(){
  const list=$("players");list.innerHTML="";
- ctx.strokeStyle="#8ca4c4";ctx.lineWidth=8;ctx.strokeRect(12,12,936,576);\n  Object.values(players).forEach(p=>{const li=document.createElement("li");li.textContent=p.name;list.appendChild(li);});
+ Object.values(players).forEach(p=>{const li=document.createElement("li");li.textContent=p.name;list.appendChild(li);});
 }
 function startPlay(){
  if(mode==="desktop"||mode==="mobile")return;
@@ -86,7 +86,8 @@ function render(){
  const canvas=$("arena");
  if(canvas&&mode==="desktop"){
   const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#172338";ctx.fillRect(0,0,canvas.width,canvas.height);\n  ctx.strokeStyle="#344a68";ctx.lineWidth=2;
+  ctx.fillStyle="#172338";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle="#344a68";ctx.lineWidth=2;
   for(let x=0;x<canvas.width;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
   for(let y=0;y<canvas.height;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
   Object.values(players).forEach(p=>{
