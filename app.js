@@ -1,104 +1,33 @@
 (() => {
-const $ = id => document.getElementById(id);
-const socket = io();
-let roomId=null, isHost=false, mode="home", playerName="플레이어";
-let players={}, angle=0, throttle=0, sensorHandler=null, motionHandler=null, rotation=0, lastMotion=0, remaining=90, gameFinished=false;
-const colors=["#55a7ff","#ffb454","#75db9a","#ed7bd0","#c2a4ff","#ff7777","#75dedb","#e5dc74"];
-const notice=s=>$("notice").textContent=s;
-function show(id){["home","lobby","desktop","mobile"].forEach(x=>$(x).classList.toggle("hidden",x!==id));mode=id;}
-function setConnection(ok,msg){$("connection").textContent=msg|| (ok?"서버 연결됨":"서버 연결 끊김");}
-socket.on("connect",()=>setConnection(true));
-socket.on("disconnect",()=>setConnection(false));
-socket.on("connect_error",()=>setConnection(false,"서버 연결 실패"));
-socket.on("errorMessage",m=>notice(m));
-socket.on("roomJoined",data=>{
- roomId=data.code;isHost=data.isHost;players=data.players||{};
- $("codeLabel").textContent=roomId;
- $("start").style.display=isHost?"inline-block":"none";
- renderPlayers();show("lobby");
-});
-socket.on("roomUpdate",data=>{
- players=data.players||{};
- renderPlayers();
- if(data.status==="playing")startPlay();
-});
-socket.on("playerLeft",data=>{players=data.players||{};renderPlayers();});
-socket.on("gameStarted",()=>startPlay());
-socket.on("gameOver",data=>{gameFinished=true;const board=(data.ranking||[]).map(r=>r.rank+". "+r.name+" · "+r.score+"점").join("\\n");$("gameInfo").textContent="경기 종료!\\n"+board;});
-socket.on("hit",data=>{if(mode==="desktop")$("gameInfo").textContent=data.scorer+" 충돌 성공! +1점";});
-function renderPlayers(){
- const list=$("players");list.innerHTML="";
- Object.values(players).forEach(p=>{const li=document.createElement("li");li.textContent=p.name;list.appendChild(li);});
-}
-function startPlay(){
- if(mode==="desktop"||mode==="mobile")return;
- const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
- show(mobile?"mobile":"desktop");if(mobile)requestLandscape();
-}
-function requestLandscape(){if(screen.orientation?.lock)screen.orientation.lock("landscape").catch(()=>{ $("sensorStatus").textContent="기기를 가로로 돌려서 사용해."; });}
-function createRoom(){
- playerName=$("nickname").value.trim()||"플레이어";
- socket.emit("createRoom",{name:playerName});
-}
-function joinRoom(){
- const code=$("roomCode").value.trim().toUpperCase();
- if(code.length!==6)return notice("6자리 방 코드를 입력해.");
- playerName=$("nickname").value.trim()||"플레이어";
- socket.emit("joinRoom",{code,name:playerName});
-}
-function leave(){
- stopSensor();socket.emit("leaveRoom");roomId=null;players={};angle=0;throttle=0;show("home");
-}
-function startSensor(){
- const status=$("sensorStatus");
- const enable=async()=>{
-  if(typeof DeviceMotionEvent==="undefined"||!("rotationRate" in DeviceMotionEvent.prototype)){
-   status.textContent="회전 센서를 지원하지 않아. 아래 좌우 버튼으로 조작해.";
-   return;
-  }
-  if(typeof DeviceMotionEvent.requestPermission==="function"){
-   const result=await DeviceMotionEvent.requestPermission();
-   if(result!=="granted")throw new Error("센서 권한이 허용되지 않았어.");
-  }
-  if(motionHandler)window.removeEventListener("devicemotion",motionHandler);
-  rotation=0;lastMotion=0;
-  motionHandler=e=>{
-   const rate=e.rotationRate?.alpha;
-   if(rate===null||rate===undefined)return;
-   const now=performance.now(),dt=lastMotion?Math.min(.05,(now-lastMotion)/1000):0;lastMotion=now;
-   rotation=Math.max(-35,Math.min(35,rotation+rate*dt));
-   angle=Math.max(-1,Math.min(1,rotation/22));
-   $("wheel").style.transform="rotate("+(-rotation*2)+"deg)";
-   publishInput();
-  };
-  window.addEventListener("devicemotion",motionHandler);
-  status.textContent="회전 자이로 작동 중";
- };
- enable().catch(e=>status.textContent=e.message);
-}
-function stopSensor(){if(sensorHandler)window.removeEventListener("deviceorientation",sensorHandler);if(motionHandler)window.removeEventListener("devicemotion",motionHandler);sensorHandler=null;motionHandler=null;}
-function publishInput(){if(roomId)socket.emit("playerInput",{angle,throttle});}
-$("create").onclick=createRoom;$("join").onclick=joinRoom;$("start").onclick=()=>socket.emit("startGame");
-$("leave").onclick=leave;$("leaveMobile").onclick=leave;$("sensor").onclick=startSensor;
-$("left").addEventListener("pointerdown",()=>{angle=-1;publishInput();});$("right").addEventListener("pointerdown",()=>{angle=1;publishInput();});["pointerup","pointercancel","pointerleave"].forEach(ev=>[$("left"),$("right")].forEach(b=>b.addEventListener(ev,()=>{angle=0;publishInput();})));
-$("accelerate").addEventListener("pointerdown",e=>{e.preventDefault();throttle=1;publishInput();});
-["pointerup","pointercancel","pointerleave"].forEach(ev=>$("accelerate").addEventListener(ev,()=>{throttle=0;publishInput();}));
-function render(){
- const canvas=$("arena");
- if(canvas&&mode==="desktop"){
-  const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#172338";ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle="#344a68";ctx.lineWidth=2;
-  for(let x=0;x<canvas.width;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
-  for(let y=0;y<canvas.height;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
-  Object.values(players).forEach(p=>{
-   ctx.save();ctx.translate(p.x||100,p.y||100);ctx.rotate(p.angle||0);
-   ctx.fillStyle=p.color||"#fff";ctx.fillRect(-20,-12,40,24);ctx.fillStyle="#101827";ctx.fillRect(3,-8,12,16);
-   ctx.fillStyle="#172338";ctx.fillRect(5,-7,8,14);ctx.restore();
-   ctx.fillStyle="#fff";ctx.font="14px sans-serif";ctx.fillText((p.name||"car")+" "+(p.score||0)+"점",(p.x||100)-24,(p.y||100)-22);
-  });
- }
- requestAnimationFrame(render);
-}
-render();
+const $=id=>document.getElementById(id),socket=io();
+let roomId=null,isHost=false,screenMode="home",players={},angle=0,throttle=0,motionHandler=null,rotation=0,lastMotion=0,gameMode="battle",roomState={};
+const notice=s=>{if($("notice"))$("notice").textContent=s};
+function show(id){["home","lobby","desktop","mobile"].forEach(x=>$(x).classList.toggle("hidden",x!==id));screenMode=id}
+function connection(ok,msg){$("connection").textContent=msg||(ok?"서버 연결됨":"서버 연결 끊김")}
+socket.on("connect",()=>connection(true));socket.on("disconnect",()=>connection(false));socket.on("connect_error",()=>connection(false,"서버 연결 실패"));socket.on("errorMessage",notice);
+socket.on("roomJoined",d=>{roomId=d.code;isHost=!!d.isHost;players=d.players||{};$("codeLabel").textContent=roomId;$("start").style.display=isHost?"inline-block":"none";$("modeSettings").style.display=isHost?"block":"none";renderPlayers();show("lobby")});
+socket.on("roomUpdate",d=>{roomState=d;players=d.players||{};gameMode=d.mode||gameMode;renderPlayers();if(d.status==="playing"&&screenMode==="lobby")startPlay();if(screenMode==="desktop")draw()});
+socket.on("gameStarted",d=>{gameMode=d.mode||gameMode;startPlay()});
+socket.on("gameOver",d=>{if($("gameInfo"))$("gameInfo").textContent="경기 종료\n"+(d.ranking||[]).map(x=>(x.rank?x.rank+". ":"")+x.name+" · "+x.score).join("\n")});
+socket.on("hit",d=>setInfo(d.scorer+" 충돌 성공! +1점"));socket.on("coinCollected",d=>setInfo(d.name+" 동전 획득! "+d.score+"개"));socket.on("goal",d=>setInfo(d.team+" 득점!"));
+function setInfo(t){if($("gameInfo"))$("gameInfo").textContent=t}
+function renderPlayers(){const ul=$("players");ul.innerHTML="";Object.values(players).forEach(p=>{const li=document.createElement("li");li.textContent=p.name+(p.team?" · "+p.team:"");ul.appendChild(li)})}
+function startPlay(){if(isHost){show("desktop");setInfo("관전 모드 · "+modeName(gameMode));draw();return}const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);show(mobile?"mobile":"desktop");if(mobile&&screen.orientation?.lock)screen.orientation.lock("landscape").catch(()=>{})}
+function modeName(m){return ({battle:"자동차 배틀",race:"레이스",coin:"동전 먹기",soccer:"팀 축구"})[m]||m}
+function createRoom(){socket.emit("createRoom")}
+function joinRoom(){const code=$("roomCode").value.trim().toUpperCase();if(code.length!==6)return notice("6자리 방 코드를 입력해.");socket.emit("joinRoom",{code,name:$("nickname").value.trim()||"플레이어"})}
+function configure(){const m=$("gameMode").value;socket.emit("configureRoom",{mode:m,teamA:$("teamA").value,teamB:$("teamB").value});gameMode=m;setInfo("설정 적용: "+modeName(m))}
+function leave(){stopSensor();socket.emit("leaveRoom");roomId=null;players={};show("home")}
+function startSensor(){const status=$("sensorStatus");const enable=async()=>{if(typeof DeviceMotionEvent==="undefined"){status.textContent="회전 센서가 없어. 좌우 버튼으로 조작해.";return}if(typeof DeviceMotionEvent.requestPermission==="function"){const p=await DeviceMotionEvent.requestPermission();if(p!=="granted")throw Error("센서 권한이 허용되지 않았어.")}if(motionHandler)window.removeEventListener("devicemotion",motionHandler);rotation=0;lastMotion=0;motionHandler=e=>{const rate=e.rotationRate?.alpha;if(rate==null)return;const now=performance.now(),dt=lastMotion?Math.min(.05,(now-lastMotion)/1000):0;lastMotion=now;rotation=Math.max(-35,Math.min(35,rotation+rate*dt));angle=Math.max(-1,Math.min(1,rotation/22));$("wheel").style.transform="rotate("+(-rotation*2)+"deg)";publish()};window.addEventListener("devicemotion",motionHandler);status.textContent="회전 자이로 작동 중"};enable().catch(e=>status.textContent=e.message)}
+function stopSensor(){if(motionHandler)window.removeEventListener("devicemotion",motionHandler);motionHandler=null}
+function publish(){if(roomId)socket.emit("playerInput",{angle,throttle})}
+function bindHold(id,fn,release){const el=$(id);el.addEventListener("pointerdown",e=>{e.preventDefault();fn();publish()});["pointerup","pointercancel","pointerleave"].forEach(ev=>el.addEventListener(ev,()=>{release();publish()}))}
+function draw(){const c=$("arena");if(!c||screenMode!=="desktop")return;const x=c.getContext("2d");x.clearRect(0,0,960,600);x.fillStyle="#172338";x.fillRect(0,0,960,600);x.strokeStyle="#354a68";x.lineWidth=3;x.strokeRect(20,20,920,560);
+ if(gameMode==="soccer"){x.strokeStyle="#8ba0bc";x.beginPath();x.moveTo(480,20);x.lineTo(480,580);x.stroke();x.strokeRect(0,270,35,60);x.strokeRect(925,270,35,60);const b=roomState.ball;if(b){x.fillStyle="#fff";x.beginPath();x.arc(b.x,b.y,15,0,Math.PI*2);x.fill()}x.fillStyle="#ff7777";x.font="bold 20px sans-serif";x.fillText((roomState.teamNames||["레드팀","블루팀"])[0]+": "+((roomState.teamScores||{})[(roomState.teamNames||["레드팀"])[0]]||0),60,48);x.fillStyle="#75aaff";x.fillText((roomState.teamNames||["레드팀","블루팀"])[1]+": "+((roomState.teamScores||{})[(roomState.teamNames||["","블루팀"])[1]]||0),760,48)}
+ if(gameMode==="race"){x.strokeStyle="#9aaec7";x.lineWidth=5;x.setLineDash([12,10]);x.strokeRect(100,60,760,480);x.setLineDash([]);[ [480,70],[850,300],[480,530],[110,300] ].forEach((p,i)=>{x.fillStyle="#f5d76e";x.beginPath();x.arc(p[0],p[1],24,0,Math.PI*2);x.fill();x.fillStyle="#172338";x.fillText(i+1,p[0]-5,p[1]+5)})}
+ if(gameMode==="coin")for(const coin of roomState.coins||[]){x.fillStyle="#ffd34e";x.beginPath();x.arc(coin.x,coin.y,10,0,Math.PI*2);x.fill()}
+ Object.values(players).forEach(p=>{x.save();x.translate(p.x||100,p.y||100);x.rotate(p.angle||0);x.fillStyle=p.color||"#fff";x.fillRect(-20,-12,40,24);x.fillStyle="#172338";x.fillRect(3,-8,12,16);x.restore();x.fillStyle="#fff";x.font="13px sans-serif";x.fillText(p.name+" "+(gameMode==="race"?(p.laps||0)+"L":(p.score||0)+"점"),(p.x||100)-28,(p.y||100)-22);if(p.team){x.fillStyle=p.team===(roomState.teamNames||[])[0]?"#ff7777":"#75aaff";x.fillText(p.team,(p.x||100)-24,(p.y||100)+28)}});if(roomState.remaining!=null)setInfo(modeName(gameMode)+" · "+Math.ceil(roomState.remaining)+"초 · 관전")}
+ $("create").onclick=createRoom;$("join").onclick=joinRoom;$("start").onclick=()=>socket.emit("startGame");$("saveMode").onclick=configure;$("gameMode").onchange=()=> $("teamSettings").classList.toggle("hidden",$("gameMode").value!=="soccer");$("leave").onclick=leave;$("leaveMobile").onclick=leave;$("sensor").onclick=startSensor;
+ bindHold("left",()=>angle=-1,()=>angle=0);bindHold("right",()=>angle=1,()=>angle=0);bindHold("accelerate",()=>throttle=1,()=>throttle=0);
+ setInterval(()=>{if(screenMode==="desktop")draw()},100); 
 })();
