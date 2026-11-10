@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const socket = io();
 let roomId=null, isHost=false, mode="home", playerName="플레이어";
-let players={}, angle=0, throttle=0, sensorHandler=null, remaining=90, gameFinished=false;
+let players={}, angle=0, throttle=0, sensorHandler=null, motionHandler=null, rotation=0, lastMotion=0, remaining=90, gameFinished=false;
 const colors=["#55a7ff","#ffb454","#75db9a","#ed7bd0","#c2a4ff","#ff7777","#75dedb","#e5dc74"];
 const notice=s=>$("notice").textContent=s;
 function show(id){["home","lobby","desktop","mobile"].forEach(x=>$(x).classList.toggle("hidden",x!==id));mode=id;}
@@ -51,35 +51,36 @@ function leave(){
 }
 function startSensor(){
  const status=$("sensorStatus");
- try{
-  if(typeof DeviceOrientationEvent==="undefined")throw new Error("이 기기는 방향 센서를 지원하지 않아.");
-  const enable=async()=>{
-   if(typeof DeviceOrientationEvent.requestPermission==="function"){
-    const result=await DeviceOrientationEvent.requestPermission();
-    if(result!=="granted")throw new Error("센서 권한이 허용되지 않았어.");
-   }
-   if(sensorHandler)window.removeEventListener("deviceorientation",sensorHandler);
-   let got=false;
-   sensorHandler=e=>{
-    if(e.gamma===null||e.gamma===undefined)return;
-    got=true;const orientation=screen.orientation?.angle ?? window.orientation ?? 0;
-    const tilt=(Math.abs(orientation)===90)?(orientation===90?e.beta:-e.beta):e.gamma;
-    const raw=(tilt||0);
-    angle=Math.abs(raw)<3?0:Math.max(-1,Math.min(1,raw/32));
-    $("wheel").style.transform="rotate("+(-angle*115)+"deg)";
-    publishInput();
-   };
-   window.addEventListener("deviceorientation",sensorHandler);
-   status.textContent="센서 데이터 확인 중...";
-   setTimeout(()=>{status.textContent=got?"센서 작동 중":"센서 데이터가 없어. HTTPS와 브라우저 권한을 확인해.";},2500);
+ const enable=async()=>{
+  if(typeof DeviceMotionEvent==="undefined"||!("rotationRate" in DeviceMotionEvent.prototype)){
+   status.textContent="회전 센서를 지원하지 않아. 아래 좌우 버튼으로 조작해.";
+   return;
+  }
+  if(typeof DeviceMotionEvent.requestPermission==="function"){
+   const result=await DeviceMotionEvent.requestPermission();
+   if(result!=="granted")throw new Error("센서 권한이 허용되지 않았어.");
+  }
+  if(motionHandler)window.removeEventListener("devicemotion",motionHandler);
+  rotation=0;lastMotion=0;
+  motionHandler=e=>{
+   const rate=e.rotationRate?.alpha;
+   if(rate===null||rate===undefined)return;
+   const now=performance.now(),dt=lastMotion?Math.min(.05,(now-lastMotion)/1000):0;lastMotion=now;
+   rotation=Math.max(-35,Math.min(35,rotation+rate*dt));
+   angle=Math.max(-1,Math.min(1,rotation/22));
+   $("wheel").style.transform="rotate("+(-rotation*2)+"deg)";
+   publishInput();
   };
-  enable().catch(e=>status.textContent=e.message);
- }catch(e){status.textContent=e.message;}
+  window.addEventListener("devicemotion",motionHandler);
+  status.textContent="회전 자이로 작동 중";
+ };
+ enable().catch(e=>status.textContent=e.message);
 }
-function stopSensor(){if(sensorHandler)window.removeEventListener("deviceorientation",sensorHandler);sensorHandler=null;}
+function stopSensor(){if(sensorHandler)window.removeEventListener("deviceorientation",sensorHandler);if(motionHandler)window.removeEventListener("devicemotion",motionHandler);sensorHandler=null;motionHandler=null;}
 function publishInput(){if(roomId)socket.emit("playerInput",{angle,throttle});}
 $("create").onclick=createRoom;$("join").onclick=joinRoom;$("start").onclick=()=>socket.emit("startGame");
 $("leave").onclick=leave;$("leaveMobile").onclick=leave;$("sensor").onclick=startSensor;
+$("left").addEventListener("pointerdown",()=>{angle=-1;publishInput();});$("right").addEventListener("pointerdown",()=>{angle=1;publishInput();});["pointerup","pointercancel","pointerleave"].forEach(ev=>[$("left"),$("right")].forEach(b=>b.addEventListener(ev,()=>{angle=0;publishInput();})));
 $("accelerate").addEventListener("pointerdown",e=>{e.preventDefault();throttle=1;publishInput();});
 ["pointerup","pointercancel","pointerleave"].forEach(ev=>$("accelerate").addEventListener(ev,()=>{throttle=0;publishInput();}));
 function render(){
