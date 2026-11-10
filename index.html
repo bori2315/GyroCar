@@ -12,7 +12,7 @@
 <section id="home" class="panel">
 <h2>방 만들기 / 참가하기</h2>
 <input id="nickname" maxlength="12" placeholder="닉네임" value="플레이어">
-<div class="actions"><button id="create">방 만들기</button><input id="roomCode" maxlength="6" placeholder="방 코드"><button id="join">참가</button></div>
+<div class="actions"><button id="create">방 만들기</button><input id="roomCode" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="4자리 코드" aria-label="4자리 방 코드"><button id="join">참가</button></div>
 <p id="notice">서버 연결 후 방을 만들 수 있어.</p>
 </section>
 <section id="lobby" class="panel hidden">
