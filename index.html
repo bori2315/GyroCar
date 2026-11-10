@@ -18,7 +18,7 @@
 <section id="lobby" class="panel hidden">
 <div class="room-head"><h2>대기실</h2><strong id="codeLabel"></strong></div>
 <p>방장은 게임을 관리하고 관전해. 실제 플레이어는 다른 기기에서 방 코드로 참가해. 최대 8명.</p><ul id="players"></ul>
-<div class="actions"><div id="modeSettings" class="mode-settings"><label>게임 모드 <select id="gameMode"><option value="battle">자동차 배틀</option><option value="race">레이스</option><option value="coin">동전 먹기</option><option value="soccer">팀 축구</option></select></label><div id="teamSettings" class="hidden"><input id="teamA" maxlength="12" value="레드팀" aria-label="A팀 이름"><input id="teamB" maxlength="12" value="블루팀" aria-label="B팀 이름"><p>참가 순서대로 A팀, B팀에 번갈아 배정</p></div><button id="saveMode" class="secondary">모드 설정 적용</button></div><button id="start">게임 시작</button><button id="leave" class="secondary">나가기</button></div>
+<div class="actions"><div id="modeSettings" class="mode-settings"><label>게임 모드 <select id="gameMode"><option value="battle">자동차 배틀</option><option value="race">레이스</option><option value="coin">동전 먹기</option><option value="soccer">팀 축구</option></select></label><label>제한 시간(초) <input id="duration" type="number" min="30" max="600" step="30" value="90" style="width:100px"></label><div id="teamSettings" class="hidden"><input id="teamA" maxlength="12" value="레드팀" aria-label="A팀 이름"><input id="teamB" maxlength="12" value="블루팀" aria-label="B팀 이름"><p>참가 순서대로 A팀, B팀에 번갈아 배정</p></div><button id="saveMode" class="secondary">모드 설정 적용</button></div><button id="start">게임 시작</button><button id="endGame" class="secondary hidden">게임 끝내기</button><button id="leave" class="secondary">나가기</button></div>
 </section>
 <section id="desktop" class="hidden">
 <canvas id="arena" width="960" height="600"></canvas>
