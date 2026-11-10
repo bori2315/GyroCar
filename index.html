@@ -18,7 +18,7 @@
 <section id="lobby" class="panel hidden">
 <div class="room-head"><h2>대기실</h2><strong id="codeLabel"></strong></div>
 <p>방 코드를 친구에게 공유해.</p><ul id="players"></ul>
-<div class="actions"><button id="start">게임 시작</button><button id="leave" class="secondary">나가기</button></div>
+<div class="actions"><div class="mode-settings"><label>게임 모드 <select id="gameMode"><option value="battle">자동차 배틀</option><option value="race">레이스</option><option value="coin">동전 먹기</option><option value="soccer">팀 축구</option></select></label><div id="teamSettings" class="hidden"><input id="teamA" maxlength="12" value="레드팀" aria-label="A팀 이름"><input id="teamB" maxlength="12" value="블루팀" aria-label="B팀 이름"><p>참가 순서대로 A팀, B팀에 번갈아 배정</p></div><button id="saveMode" class="secondary">모드 설정 적용</button></div><button id="start">게임 시작</button><button id="leave" class="secondary">나가기</button></div>
 </section>
 <section id="desktop" class="hidden">
 <canvas id="arena" width="960" height="600"></canvas>
@@ -29,7 +29,7 @@
 <button id="sensor">자이로 센서 시작</button>
 <p id="sensorStatus">센서 권한 대기 중</p>
 <div class="steer"><span>좌회전</span><div id="wheel"><div></div></div><span>우회전</span></div>
-<button id="accelerate">가속</button>
+<div class="manual-steer"><button id="left" class="secondary">◀ 좌회전</button><button id="right" class="secondary">우회전 ▶</button></div><button id="accelerate">가속</button>
 <button id="leaveMobile" class="secondary">나가기</button>
 </section>
 </main>
