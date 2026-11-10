@@ -33,7 +33,7 @@ function startPlay(){
  const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
  show(mobile?"mobile":"desktop");if(mobile)requestLandscape();
 }
-function requestLandscape(){if(screen.orientation?.lock)screen.orientation.lock("landscape").catch(()=>{});}
+function requestLandscape(){if(screen.orientation?.lock)screen.orientation.lock("landscape").catch(()=>{ $("sensorStatus").textContent="기기를 가로로 돌려서 사용해."; });}
 function createRoom(){
  playerName=$("nickname").value.trim()||"플레이어";
  socket.emit("createRoom",{name:playerName});
@@ -60,7 +60,10 @@ function startSensor(){
    let got=false;
    sensorHandler=e=>{
     if(e.gamma===null||e.gamma===undefined)return;
-    got=true;angle=Math.max(-1,Math.min(1,e.gamma/35));
+    got=true;const orientation=screen.orientation?.angle ?? window.orientation ?? 0;
+    const tilt=(Math.abs(orientation)===90)?(orientation===90?e.beta:-e.beta):e.gamma;
+    const raw=(tilt||0);
+    angle=Math.abs(raw)<3?0:Math.max(-1,Math.min(1,raw/32));
     $("wheel").style.transform="rotate("+(-angle*115)+"deg)";
     publishInput();
    };
