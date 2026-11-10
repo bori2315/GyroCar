@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const socket = io();
 let roomId=null, isHost=false, mode="home", playerName="플레이어";
-let players={}, angle=0, throttle=0, sensorHandler=null;
+let players={}, angle=0, throttle=0, sensorHandler=null, remaining=90, gameFinished=false;
 const colors=["#55a7ff","#ffb454","#75db9a","#ed7bd0","#c2a4ff","#ff7777","#75dedb","#e5dc74"];
 const notice=s=>$("notice").textContent=s;
 function show(id){["home","lobby","desktop","mobile"].forEach(x=>$(x).classList.toggle("hidden",x!==id));mode=id;}
@@ -24,9 +24,11 @@ socket.on("roomUpdate",data=>{
 });
 socket.on("playerLeft",data=>{players=data.players||{};renderPlayers();});
 socket.on("gameStarted",()=>startPlay());
+socket.on("gameOver",data=>{gameFinished=true;const board=(data.ranking||[]).map(r=>r.rank+". "+r.name+" · "+r.score+"점").join("\\n");$("gameInfo").textContent="경기 종료!\\n"+board;});
+socket.on("hit",data=>{if(mode==="desktop")$("gameInfo").textContent=data.scorer+" 충돌 성공! +1점";});
 function renderPlayers(){
  const list=$("players");list.innerHTML="";
- Object.values(players).forEach(p=>{const li=document.createElement("li");li.textContent=p.name;list.appendChild(li);});
+ ctx.strokeStyle="#8ca4c4";ctx.lineWidth=8;ctx.strokeRect(12,12,936,576);\n  Object.values(players).forEach(p=>{const li=document.createElement("li");li.textContent=p.name;list.appendChild(li);});
 }
 function startPlay(){
  if(mode==="desktop"||mode==="mobile")return;
@@ -84,14 +86,14 @@ function render(){
  const canvas=$("arena");
  if(canvas&&mode==="desktop"){
   const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle="#344a68";ctx.lineWidth=2;
+  ctx.fillStyle="#172338";ctx.fillRect(0,0,canvas.width,canvas.height);\n  ctx.strokeStyle="#344a68";ctx.lineWidth=2;
   for(let x=0;x<canvas.width;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
   for(let y=0;y<canvas.height;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
   Object.values(players).forEach(p=>{
    ctx.save();ctx.translate(p.x||100,p.y||100);ctx.rotate(p.angle||0);
-   ctx.fillStyle=p.color||"#fff";ctx.fillRect(-18,-10,36,20);
+   ctx.fillStyle=p.color||"#fff";ctx.fillRect(-20,-12,40,24);ctx.fillStyle="#101827";ctx.fillRect(3,-8,12,16);
    ctx.fillStyle="#172338";ctx.fillRect(5,-7,8,14);ctx.restore();
-   ctx.fillStyle="#fff";ctx.font="14px sans-serif";ctx.fillText(p.name||"car",(p.x||100)-20,(p.y||100)-18);
+   ctx.fillStyle="#fff";ctx.font="14px sans-serif";ctx.fillText((p.name||"car")+" "+(p.score||0)+"점",(p.x||100)-24,(p.y||100)-22);
   });
  }
  requestAnimationFrame(render);
